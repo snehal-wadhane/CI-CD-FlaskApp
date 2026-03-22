@@ -25,7 +25,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: edgariphdz98/docker-flask-app-portafolio:latest
+          tags: snehalwadhane/docker-flask-app:latest
       #   edgariphdz98/docker-flask-app-portafolio:${{ secrets.VERSION }}
       # Set the target AKS cluster.
       - name: Logging int to Azure
