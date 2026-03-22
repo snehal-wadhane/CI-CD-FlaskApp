@@ -1,0 +1,72 @@
+name: Docker Image, Kubernetes deployment
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  ImageDeploy:
+    runs-on: ubuntu-latest
+    steps:
+      - 
+        name: Checkout Code
+        uses: actions/checkout@v2
+      -
+        name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      -
+        name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: edgariphdz98/docker-flask-app-portafolio:latest
+      #   edgariphdz98/docker-flask-app-portafolio:${{ secrets.VERSION }}
+      # Set the target AKS cluster.
+      - name: Logging int to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Setting context with AKS
+        uses: azure/aks-set-context@v2.0
+        with:
+          cluster-name: Flask-app-cluster
+          resource-group: app-deployment-resources
+      # Create namespace if doesn't exist
+      - name: Setting up K8 Master namespace 
+        run: |
+          kubectl create namespace flask-app --dry-run=client -o json | kubectl apply -f -
+      # Create imagepullsecret for Azure Container registry (ACR)
+      - uses: azure/k8s-create-secret@v1
+        with:
+          container-registry-url: docker.io
+          container-registry-username: ${{ secrets.DOCKER_USERNAME }}
+          container-registry-password: ${{ secrets.DOCKER_PASSWORD }}
+          secret-name: edgar-registry-secret
+          namespace: flask-app
+      # Deploy app to AKS
+      - name: Deploying to Kubernetes cluster
+        uses: Azure/k8s-deploy@v1
+        with:
+          manifests: |
+            manifests/deployment.yml
+            manifests/service.yml
+          images: |
+            docker.io/edgariphdz98/docker-flask-app-portafolio:latest
+          imagepullsecrets: |
+           edgar-registry-secret
+          namespace: flask-app
+      # -
+      #   name: updating version Number of Image
+      #   uses: hmanzur/actions-set-secret@v2.0.0
+      #   with:
+      #     name: 'VERSION'
+      #     value: $((${{ secrets.VERSION }}+1))
+      #     repository: edgariph98/CI-CD-FlaskApp
+      #     token: ${{ secrets.REPO_ACCESS_TOKEN }}
