@@ -1,352 +1,842 @@
-<!DOCTYPE HTML>
-<!--
-	Prologue by HTML5 UP
-	html5up.net | @ajlkn
-	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
--->
-<html>
-	<head>
-		<title>Edgar Portales</title>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-		<link rel="shortcut icon" href="{{url_for('static',filename = 'images/favicon.ico')}}" type="image/x-icon"/>
-		<link rel="stylesheet" href="{{url_for('static',filename = 'assets/css/main.css')}}" />
-		<link rel="stylesheet" href="{{url_for('static',filename = 'assets/css/font-mfizz-2.4.1/dist/font-mfizz.css')}}">
-		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
-	</head>
-	<body class="is-preload">
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Flask · System Dashboard</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link
+		href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap"
+		rel="stylesheet" />
+	<style>
+		/* ── Reset & base ──────────────────────────────────────────────────── */
+		*,
+		*::before,
+		*::after {
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0;
+		}
+
+		:root {
+			--bg: #06070d;
+			--surface: #0d0f1a;
+			--border: rgba(255, 255, 255, 0.07);
+			--accent: #00e5ff;
+			--accent2: #7c3aed;
+			--green: #00ff87;
+			--amber: #ffb800;
+			--red: #ff4757;
+			--text: #e8eaf0;
+			--muted: #5a5f7a;
+			--font-head: 'Syne', sans-serif;
+			--font-mono: 'JetBrains Mono', monospace;
+		}
+
+		html {
+			font-size: 16px;
+		}
+
+		body {
+			background: var(--bg);
+			color: var(--text);
+			font-family: var(--font-mono);
+			min-height: 100vh;
+			overflow-x: hidden;
+		}
+
+		/* ── Animated grid background ─────────────────────────────────────── */
+		body::before {
+			content: '';
+			position: fixed;
+			inset: 0;
+			background-image:
+				linear-gradient(rgba(0, 229, 255, 0.03) 1px, transparent 1px),
+				linear-gradient(90deg, rgba(0, 229, 255, 0.03) 1px, transparent 1px);
+			background-size: 48px 48px;
+			pointer-events: none;
+			z-index: 0;
+		}
+
+		/* ── Layout ────────────────────────────────────────────────────────── */
+		.shell {
+			position: relative;
+			z-index: 1;
+			max-width: 1200px;
+			margin: 0 auto;
+			padding: 2.5rem 1.5rem 4rem;
+		}
+
+		/* ── Header ────────────────────────────────────────────────────────── */
+		header {
+			display: flex;
+			align-items: flex-end;
+			justify-content: space-between;
+			margin-bottom: 3rem;
+			flex-wrap: wrap;
+			gap: 1rem;
+		}
+
+		.brand {
+			font-family: var(--font-head);
+			font-size: 2.6rem;
+			font-weight: 800;
+			letter-spacing: -0.03em;
+			line-height: 1;
+		}
+
+		.brand span {
+			color: var(--accent);
+		}
+
+		.tagline {
+			font-size: 0.7rem;
+			color: var(--muted);
+			text-transform: uppercase;
+			letter-spacing: 0.18em;
+			margin-top: 0.4rem;
+		}
+
+		.live-badge {
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+			font-size: 0.72rem;
+			color: var(--green);
+			letter-spacing: 0.12em;
+			text-transform: uppercase;
+			border: 1px solid rgba(0, 255, 135, 0.25);
+			padding: 0.4rem 0.9rem;
+			border-radius: 100px;
+			background: rgba(0, 255, 135, 0.05);
+		}
+
+		.pulse {
+			width: 7px;
+			height: 7px;
+			background: var(--green);
+			border-radius: 50%;
+			animation: pulse 1.6s ease-in-out infinite;
+		}
+
+		@keyframes pulse {
+
+			0%,
+			100% {
+				opacity: 1;
+				transform: scale(1);
+				box-shadow: 0 0 0 0 rgba(0, 255, 135, 0.5);
+			}
+
+			50% {
+				opacity: 0.8;
+				transform: scale(1.15);
+				box-shadow: 0 0 0 5px rgba(0, 255, 135, 0);
+			}
+		}
+
+		/* ── Status bar ────────────────────────────────────────────────────── */
+		.statusbar {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+			gap: 1px;
+			background: var(--border);
+			border: 1px solid var(--border);
+			border-radius: 12px;
+			overflow: hidden;
+			margin-bottom: 1.5rem;
+		}
+
+		.stat {
+			background: var(--surface);
+			padding: 1.1rem 1.4rem;
+			transition: background 0.2s;
+		}
+
+		.stat:hover {
+			background: #12152a;
+		}
+
+		.stat-label {
+			font-size: 0.62rem;
+			color: var(--muted);
+			text-transform: uppercase;
+			letter-spacing: 0.14em;
+			margin-bottom: 0.35rem;
+		}
+
+		.stat-value {
+			font-size: 1.05rem;
+			font-weight: 500;
+			color: var(--text);
+		}
+
+		.stat-value.accent {
+			color: var(--accent);
+		}
+
+		.stat-value.green {
+			color: var(--green);
+		}
+
+		.stat-value.amber {
+			color: var(--amber);
+		}
+
+		/* ── Grid ──────────────────────────────────────────────────────────── */
+		.grid {
+			display: grid;
+			grid-template-columns: repeat(12, 1fr);
+			gap: 1rem;
+		}
+
+		.col-4 {
+			grid-column: span 4;
+		}
+
+		.col-6 {
+			grid-column: span 6;
+		}
+
+		.col-8 {
+			grid-column: span 8;
+		}
+
+		.col-12 {
+			grid-column: span 12;
+		}
+
+		@media (max-width: 860px) {
+
+			.col-4,
+			.col-6,
+			.col-8 {
+				grid-column: span 12;
+			}
+		}
+
+		/* ── Card ──────────────────────────────────────────────────────────── */
+		.card {
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: 14px;
+			padding: 1.5rem;
+			position: relative;
+			overflow: hidden;
+			animation: fadein 0.5s ease both;
+		}
+
+		.card::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			height: 2px;
+			background: linear-gradient(90deg, transparent, var(--accent), transparent);
+			opacity: 0;
+			transition: opacity 0.3s;
+		}
+
+		.card:hover::before {
+			opacity: 1;
+		}
+
+		@keyframes fadein {
+			from {
+				opacity: 0;
+				transform: translateY(12px);
+			}
+
+			to {
+				opacity: 1;
+				transform: translateY(0);
+			}
+		}
+
+		.card:nth-child(1) {
+			animation-delay: 0.05s;
+		}
+
+		.card:nth-child(2) {
+			animation-delay: 0.10s;
+		}
+
+		.card:nth-child(3) {
+			animation-delay: 0.15s;
+		}
+
+		.card:nth-child(4) {
+			animation-delay: 0.20s;
+		}
+
+		.card:nth-child(5) {
+			animation-delay: 0.25s;
+		}
+
+		.card-title {
+			font-size: 0.65rem;
+			color: var(--muted);
+			text-transform: uppercase;
+			letter-spacing: 0.15em;
+			margin-bottom: 1.1rem;
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+		}
+
+		.card-title::before {
+			content: '';
+			display: inline-block;
+			width: 6px;
+			height: 6px;
+			background: var(--accent);
+			border-radius: 50%;
+		}
+
+		/* ── Gauge ─────────────────────────────────────────────────────────── */
+		.gauge-wrap {
+			display: flex;
+			align-items: center;
+			gap: 1.2rem;
+		}
+
+		.gauge-ring {
+			flex-shrink: 0;
+			width: 80px;
+			height: 80px;
+		}
+
+		.gauge-ring circle {
+			fill: none;
+			stroke-width: 7;
+			stroke-linecap: round;
+			transform-origin: 50% 50%;
+			transform: rotate(-90deg);
+			transition: stroke-dashoffset 0.7s cubic-bezier(.4, 0, .2, 1), stroke 0.4s;
+		}
+
+		.gauge-track {
+			stroke: rgba(255, 255, 255, 0.07);
+		}
+
+		.gauge-fill {
+			stroke-dasharray: 220;
+			stroke-dashoffset: 220;
+		}
+
+		.gauge-text {
+			font-family: var(--font-head);
+			font-size: 1.3rem;
+			font-weight: 700;
+			fill: var(--text);
+		}
+
+		.gauge-meta {
+			flex: 1;
+		}
+
+		.gauge-name {
+			font-size: 1rem;
+			font-weight: 500;
+			margin-bottom: 0.3rem;
+			color: var(--text);
+		}
+
+		.gauge-sub {
+			font-size: 0.7rem;
+			color: var(--muted);
+		}
+
+		/* ── Mini bar ──────────────────────────────────────────────────────── */
+		.bar-row {
+			display: flex;
+			flex-direction: column;
+			gap: 0.9rem;
+		}
+
+		.bar-item {}
+
+		.bar-head {
+			display: flex;
+			justify-content: space-between;
+			font-size: 0.72rem;
+			color: var(--muted);
+			margin-bottom: 0.4rem;
+		}
+
+		.bar-head span:last-child {
+			color: var(--text);
+		}
+
+		.bar-track {
+			height: 5px;
+			background: rgba(255, 255, 255, 0.07);
+			border-radius: 10px;
+			overflow: hidden;
+		}
+
+		.bar-fill {
+			height: 100%;
+			border-radius: 10px;
+			transition: width 0.8s cubic-bezier(.4, 0, .2, 1);
+		}
+
+		/* ── Info list ─────────────────────────────────────────────────────── */
+		.info-list {
+			display: flex;
+			flex-direction: column;
+			gap: 0.75rem;
+		}
+
+		.info-row {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			font-size: 0.78rem;
+		}
+
+		.info-key {
+			color: var(--muted);
+		}
+
+		.info-val {
+			color: var(--text);
+			font-weight: 500;
+		}
+
+		.badge {
+			font-size: 0.65rem;
+			padding: 0.2rem 0.6rem;
+			border-radius: 100px;
+			font-weight: 500;
+			letter-spacing: 0.05em;
+		}
+
+		.badge-green {
+			background: rgba(0, 255, 135, 0.12);
+			color: var(--green);
+			border: 1px solid rgba(0, 255, 135, 0.25);
+		}
+
+		.badge-accent {
+			background: rgba(0, 229, 255, 0.12);
+			color: var(--accent);
+			border: 1px solid rgba(0, 229, 255, 0.25);
+		}
+
+		.badge-amber {
+			background: rgba(255, 184, 0, 0.12);
+			color: var(--amber);
+			border: 1px solid rgba(255, 184, 0, 0.25);
+		}
+
+		/* ── Sparkline ─────────────────────────────────────────────────────── */
+		.spark-canvas {
+			width: 100%;
+			height: 70px;
+			margin-top: 0.5rem;
+		}
+
+		canvas {
+			display: block;
+		}
+
+		/* ── Log feed ──────────────────────────────────────────────────────── */
+		.log-feed {
+			font-size: 0.68rem;
+			color: var(--muted);
+			line-height: 1.9;
+			height: 140px;
+			overflow-y: auto;
+			scrollbar-width: thin;
+			scrollbar-color: var(--border) transparent;
+		}
+
+		.log-line {
+			display: flex;
+			gap: 0.8rem;
+		}
+
+		.log-ts {
+			color: var(--accent2);
+			flex-shrink: 0;
+		}
+
+		.log-ok {
+			color: var(--green);
+		}
+
+		.log-warn {
+			color: var(--amber);
+		}
+
+		/* ── Footer ────────────────────────────────────────────────────────── */
+		footer {
+			text-align: center;
+			margin-top: 3rem;
+			font-size: 0.65rem;
+			color: var(--muted);
+			letter-spacing: 0.1em;
+		}
+
+		footer a {
+			color: var(--accent);
+			text-decoration: none;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="shell">
 
 		<!-- Header -->
-			<div id="header">
-				<div class="top">
+		<header>
+			<div>
+				<div class="brand">Flask<span>·</span>Dashboard</div>
+				<div class="tagline">Deployed on AWS EKS · Real-time metrics</div>
+			</div>
+			<div class="live-badge">
+				<div class="pulse"></div> Live
+			</div>
+		</header>
 
-					<!-- Logo -->
-						<div id="logo">
-							<span class="image avatar48"><img src="./static/images/ProfilePic.jpeg" alt="" /></span>
-							<h1 id="title">Edgar Portales</h1>
-							<p>Software Engineer/Student</p>
-						</div>
+		<!-- Status bar -->
+		<div class="statusbar">
+			<div class="stat">
+				<div class="stat-label">Status</div>
+				<div class="stat-value green" id="sb-status">—</div>
+			</div>
+			<div class="stat">
+				<div class="stat-label">Uptime</div>
+				<div class="stat-value accent" id="sb-uptime">—</div>
+			</div>
+			<div class="stat">
+				<div class="stat-label">Environment</div>
+				<div class="stat-value" id="sb-env">—</div>
+			</div>
+			<div class="stat">
+				<div class="stat-label">Region</div>
+				<div class="stat-value" id="sb-region">—</div>
+			</div>
+			<div class="stat">
+				<div class="stat-label">Version</div>
+				<div class="stat-value amber" id="sb-version">—</div>
+			</div>
+			<div class="stat">
+				<div class="stat-label">Last refresh</div>
+				<div class="stat-value" id="sb-ts">—</div>
+			</div>
+		</div>
 
-					<!-- Nav -->
-						<nav id="nav">
-							<ul>
-								<li ><a class="btn btn-secondary" href="#top" id="top-link"><span class="icon solid fa-home">Intro</span></a></li>
-								<li ><a class="btn btn-secondary" href="#about" id="about-link"><span class="icon solid fa-heart">About Me</span></a></li>
-								<li ><a class="btn btn-secondary scrolly" href="#professional"><span class="icon solid fa-user-tie">Professional</span></a></li>
-								<li ><a class="btn btn-secondary" href="#portfolio" id="portfolio-link"><span class="icon solid fa-th">Portfolio</span></a></li>
-								<li ><a class="btn btn-secondary" href="#contact" id="contact-link"><span class="icon solid fa-envelope">Contact</span></a></li>
-							</ul>
-						</nav>
+		<!-- Cards grid -->
+		<div class="grid">
 
+			<!-- CPU gauge -->
+			<div class="card col-4">
+				<div class="card-title">CPU Usage</div>
+				<div class="gauge-wrap">
+					<svg class="gauge-ring" viewBox="0 0 80 80">
+						<circle class="gauge-track" cx="40" cy="40" r="35" />
+						<circle class="gauge-fill" id="cpu-ring" cx="40" cy="40" r="35" />
+						<text class="gauge-text" x="40" y="45" text-anchor="middle" id="cpu-pct">0%</text>
+					</svg>
+					<div class="gauge-meta">
+						<div class="gauge-name">Processor</div>
+						<div class="gauge-sub" id="cpu-sub">—</div>
+					</div>
 				</div>
+			</div>
 
-				<div class="bottom">
-
-					<!-- Social Icons -->
-						<ul class="icons">		
-							<li><a target="_blank" href="https://github.com/edgariph98" class="icon brands fa-github"><span class="label">Github</span></a></li>
-							<li><a target = "_blank" href="https://www.linkedin.com/in/edgar-portales-74b921180/" class="icon brands fa-linkedin"><span class="label">Linkedin</span></a></li>
-							<li><a href = "mailto: edgivanhdz15@hotmail.com" class="icon solid fa-envelope"><span class="label">Email</span></a></li>
-						</ul>
-
+			<!-- Memory gauge -->
+			<div class="card col-4">
+				<div class="card-title">Memory</div>
+				<div class="gauge-wrap">
+					<svg class="gauge-ring" viewBox="0 0 80 80">
+						<circle class="gauge-track" cx="40" cy="40" r="35" />
+						<circle class="gauge-fill" id="mem-ring" cx="40" cy="40" r="35" style="stroke:var(--green)" />
+						<text class="gauge-text" x="40" y="45" text-anchor="middle" id="mem-pct">0%</text>
+					</svg>
+					<div class="gauge-meta">
+						<div class="gauge-name">RAM</div>
+						<div class="gauge-sub" id="mem-sub">—</div>
+					</div>
 				</div>
-
 			</div>
 
-		<!-- Main -->
-			<div id="main">
-
-			<!-- Intro -->
-				<section id="top" class="one dark cover">
-					<div class="container">
-
-						<header>
-							<h2 class="alt">Howdy There! <br> I am Edgar Portales</h2>
-							<p>
-								You have landed on my page, you can <a class= "scrolly" href="#about">learn more</a> about me<br>
-								or feel free to check out everything, or <a class= "scrolly" href="#contact">contact me!</a>
-
-							</p>
-						</header>
-
-						<footer>
-							<a href="#portfolio" class="button scrolly">Check out my work!!</a>
-						</footer>
-
+			<!-- Disk gauge -->
+			<div class="card col-4">
+				<div class="card-title">Disk</div>
+				<div class="gauge-wrap">
+					<svg class="gauge-ring" viewBox="0 0 80 80">
+						<circle class="gauge-track" cx="40" cy="40" r="35" />
+						<circle class="gauge-fill" id="disk-ring" cx="40" cy="40" r="35" style="stroke:var(--amber)" />
+						<text class="gauge-text" x="40" y="45" text-anchor="middle" id="disk-pct">0%</text>
+					</svg>
+					<div class="gauge-meta">
+						<div class="gauge-name">Storage</div>
+						<div class="gauge-sub" id="disk-sub">—</div>
 					</div>
-				</section>
-
-			<!-- About Me -->
-				<section id="about" class="three">
-					<div class="container">
-
-						<header>
-							<h2>About Me</h2>
-						</header>
-
-						<a href="" class="image featured"><img src="./static/images/About1.jpg" height="auto" alt="" /></a>
-						<h2>
-							Personal
-						</h2>
-						<p>
-							My name is Edgar Portales, and I am a Software Engineer/Student from Texas A&M University.
-							I am originally from <a href="https://en.wikipedia.org/wiki/Monterrey" target="_blank" >Monterrey 
-							Nuevo Leon, Mexico</a> but I have continued my High School and College education, here in the US. 
-							I enjoy working out, and finding new ways to apply technologies to help out my community.
-						</p>
-
-					</div>
-				</section>
-
-				<!-- Professional -->
-				<section id="professional" class="four">
-					<div class="container">
-
-						<header>
-							<h2>Professional</h2>
-						</header>
-						<div class="row">
-							<div class="col-6 col-12-mobile">
-								<h3>
-									My Interests
-								</h3>
-								<p>
-									 As far as my professional experience, most of it has been dealing with fullstack
-									 web development, backend services, as well as creation of software tools,
-									 dealing with cloud services such as AWS and Azure. My interests include, 
-									 ML/AI, distributed systems software development, and microservice software architecture
-									 low-level software composition such as Operating Systems.
-									 <br>
-									 As of right now, I am an incoming Software Engineer at 
-									<a href="https://www.microsoft.com/en-us/" target="_blank">Microsoft</a> 
-									working under 
-									<a href="https://azure.microsoft.com/en-us/" target="_blank">Azure</a>
-									starting Spring 2022
-								</p>
-							</div>
-							<div class="col-6 col-12-mobile">
-								<h3>
-									Skills
-								</h3>
-								<div class="row">
-									<div class="col-6 col-12-mobile">
-										Language
-									</div>
-									<div class="col-6 col-12-mobile">
-										Level
-									</div>
-								</div>
-								<!-- Python -->
-								<div class="row">
-									<div class="col-6 col-12-mobile">
-										<a href="https://www.python.org/about/">
-											<i class="fab fa-python fa-2x icon-color"></i>
-										</a>
-									</div>	
-									<div class="col-6 col-12-mobile">
-										<p class="level-color">
-											Proficient
-										</p>
-									</div>
-								</div>
-								<!-- c++ -->
-								<div class="row">
-									<div class="col-6 col-12-mobile">
-										<a href="https://www.cplusplus.com/info/faq/">
-											<img src="https://img.icons8.com/metro/46/000000/c-plus-plus.png"/>
-										</a>
-										
-									</div>	
-									<div class="col-6 col-12-mobile">
-										<p class="level-color">
-											Proficient
-										</p>
-									</div>
-								</div>
-								<!-- javasscript  -->
-								<div class="row">
-									<div class="col-6 col-12-mobile">
-										<a href="https://www.javascript.com/about" target="_blank">
-											<i class="fab fa-js-square fa-2x icon-color"></i>
-										</a>
-									</div>	
-									<div class="col-6 col-12-mobile">
-										<p class="level-color">
-											Proficient
-										</p>
-									</div>
-								</div>
-								<!-- java  -->
-								<div class="row">
-									<div class="col-6 col-12-mobile">
-										<a href="https://go.java/?intcmp=gojava-banner-java-com" target="_blank">
-											<i class="fab fa-java fa-2x icon-color"></i>
-										</a>
-									</div>	
-									<div class="col-6 col-12-mobile">
-										<p class="level-intermediate">
-											Advanced
-										</p>
-									</div>
-								</div>
-							</div>
-						</div>
-						<h3> Other tools and technologies</h3>
-						<div class="row">
-							<div class="col-2 col12-mobile">
-								<a href="https://git-scm.com/about tools-size" target="_blank"><i class="icon-git"></i></a>
-							</div>
-							<div class="col-2 col12-mobile">
-								<a href="https://github.com/about" target="_blank"><i class="fab fa-github"></i></a>
-							</div>
-							<div class="col-2 col12-mobile">
-								<a href="https://ubuntu.com/about" target="_blank"><i class="icon-ubuntu"></i></a>
-							</div>
-							<div class="col-2 col12-mobile">
-								<a href="https://aws.amazon.com/" target="_blank"><i class="fab fa-aws"></i></a>
-							</div>
-
-							<div class="col-2 col12-mobile">
-								<a href="https://www.mysql.com/about/" target="_blank"><i class="icon-mysql-alt"></i> </a>
-							</div>
-							<div class="col-2 col12-mobile">
-								<a href="https://www.postgresql.org/about/" target="_blank"><i class="icon-postgres"></i> </a>
-							</div>
-						</div>		
-						<a href="/static/images/EdgarPortalesResume-Fall-2021.pdf" target="_blank" class="button">check out My Resume</a>
-					</div>
-				</section>
-
-				<!-- Portfolio -->
-				<section id="portfolio" class="two">
-					<div class="container">
-
-						<header>
-							<h2>Portfolio</h2>
-						</header>
-
-						<p>
-							Feel free to check out projects I have created and contributed to!!
-						</p>
-
-						<div class="row">
-							<div class="col-6 col-12-mobile">
-								<article class="item">
-									<a href="https://github.com/edgariph98/UnixShellBash" class="image fit" target="_blank"><img src="./static/images/unixShell.png" alt="" /></a>
-									<header>
-										<h2	>Unix Bash Shell</h2>
-										<p>
-											This tool was an implementation of a Unix Bash Shell used to perform piped or non-piped commands <br>
-											Tools Used:
-											<br>
-											C++, Unix pipes, Unix kernel privileges.
-
-										</p>
-									</header>
-								</article>
-								<article class="item">
-									<a href="https://github.com/edgariph98/BuddyMemoryAllocator" target="_blank" class="image fit"><img src="./static/images/BuddyALlocator.png" alt="" /></a>
-									<header>
-										<h2>Buddy Memory Allocator System</h2>
-										<p>
-											Implementation of a Buddy Allocation memory management system, to split and handle the management of memory asked for a user.
-											<br>
-											Tools used:
-											<br>
-											C++, C++ pointer arithmetic, Unix memory management
-										</p>
-									</header>
-								</article>
-							</div>
-							<div class="col-6 col-12-mobile">
-								<article class="item">
-									<a href="https://github.com/edgariph98/Boring-tine" class="image fit" target="_blank"><img src="./static/images/boringtine.png" alt="" /></a>
-									<header>
-										<h2>Boringtine</h2>
-										<p>
-											A web-api-based application used to give recommendations of different types of activities, song, movies, books,
-											and workout suggestions based on a Personality test give to the user, or based on search filled by the user.
-											<br>
-											Tools used:
-											<br>
-											Python, Flask, Javascript, CSS, HTMl
-											<br>
-											link to web app: <a href="https://boring-tine.herokuapp.com/">https://boring-tine.herokuapp.com/</a>
-										</p>
-									</header>
-								</article>
-								<article class="item">
-									<a href="https://github.com/edgariph98/Sportiza" class="image fit" target="_blank"><img src="./static/images/Sportiza_Logo.png" alt="" /></a>
-									<header>
-										<h2>Sportiza</h2>
-										<p>
-											An application that delivers many different types of statistics on College Football, from past years on A1 college teams
-											<br>
-											Tools used:
-											<br>
-											<strong	> Java, JavaFX, PostgreSQL, Pyhton, Pandas, HTML, CSS, Javacript</strong> 
-										</p>
-									</header>
-								</article>
-							</div>
-
-						</div>
-
-					</div>
-				</section>
-
-				<!-- Contact -->
-					<section id="contact" class="four">
-
-						<div class="container">
-							<header>
-								<h2>Contact</h2>
-							</header>
-							
-							<p>
-								Have any concerns, or would you like to get in contact with me? <br>
-								feel free to reach out to me by sending me a message! and I will get back to you as soon as I can!!
-							</p>
-												<!-- Social Icons -->
-							<ul class="icons">		
-								<li><a target="_blank" href="https://github.com/edgariph98" class="icon brands fa-github fa-4x"><span class="label">Github</span></a></li>
-								<li><a target = "_blank" href="https://www.linkedin.com/in/edgar-portales-74b921180/" class="icon brands fa-linkedin fa-4x"><span class="label">Linkedin</span></a></li>
-								<li><a href = "mailto: edgivanhdz15@hotmail.com" class="icon solid fa-envelope fa-4x"><span class="label">Email</span></a></li>
-							</ul>
-							<!-- <form method="post" action="#contact" >
-								<div class="row">
-									<div class="col-6 col-12-mobile"><input type="text" name="name" placeholder="Name" /></div>
-									<div class="col-6 col-12-mobile"><input type="text" name="email" placeholder="Email" /></div>
-									<div class="col-12">
-										<textarea name="message" placeholder="Message"></textarea>
-									</div> 
-									<div class="col-12">
-										<input type="submit" value="Send Message" />
-									</div>
-
-								</div>
-							</form> -->
-
-						</div>
-					</section>
-
+				</div>
 			</div>
 
-		<!-- Footer -->
-			<div id="footer">
-				<!-- Copyright -->
-					<ul class="copyright">
-						<li>&copy; </li><li>Design inspired by: <a href="http://html5up.net">HTML5 UP</a></li>
-					</ul>
+			<!-- CPU sparkline -->
+			<div class="card col-8">
+				<div class="card-title">CPU History (last 30 readings)</div>
+				<div class="spark-canvas">
+					<canvas id="spark" height="70"></canvas>
+				</div>
 			</div>
-			<script src="{{url_for('static',filename = 'assets/js/jquery.min.js')}}"></script>
-			<script src="{{url_for('static',filename = 'assets/js/jquery.scrollex.min.js')}}"></script>
-			<script src="{{url_for('static',filename = 'assets/js/jquery.scrolly.min.js')}}"></script>
-			<script src="{{url_for('static',filename = 'assets/js/browser.min.js')}}"></script>
-			<script src="{{url_for('static',filename = 'assets/js/breakpoints.min.js')}}"></script>
-			<script src="{{url_for('static',filename = 'assets/js/util.js')}}"></script>
-			<script src="{{url_for('static',filename = 'assets/js/main.js')}}"></script>
 
-	</body>
+			<!-- System info -->
+			<div class="card col-4">
+				<div class="card-title">System Info</div>
+				<div class="info-list">
+					<div class="info-row">
+						<span class="info-key">Hostname</span>
+						<span class="info-val" id="sys-host">—</span>
+					</div>
+					<div class="info-row">
+						<span class="info-key">OS</span>
+						<span class="info-val" id="sys-os">—</span>
+					</div>
+					<div class="info-row">
+						<span class="info-key">Python</span>
+						<span class="info-val" id="sys-py">—</span>
+					</div>
+					<div class="info-row">
+						<span class="info-key">Flask</span>
+						<span class="badge badge-accent">3.x</span>
+					</div>
+					<div class="info-row">
+						<span class="info-key">Health</span>
+						<span class="badge badge-green">Passing</span>
+					</div>
+				</div>
+			</div>
+
+			<!-- Resource bars -->
+			<div class="card col-6">
+				<div class="card-title">Resource Breakdown</div>
+				<div class="bar-row">
+					<div class="bar-item">
+						<div class="bar-head"><span>CPU</span><span id="br-cpu">0%</span></div>
+						<div class="bar-track">
+							<div class="bar-fill" id="bf-cpu" style="width:0%;background:var(--accent)"></div>
+						</div>
+					</div>
+					<div class="bar-item">
+						<div class="bar-head"><span>Memory</span><span id="br-mem">0%</span></div>
+						<div class="bar-track">
+							<div class="bar-fill" id="bf-mem" style="width:0%;background:var(--green)"></div>
+						</div>
+					</div>
+					<div class="bar-item">
+						<div class="bar-head"><span>Disk</span><span id="br-disk">0%</span></div>
+						<div class="bar-track">
+							<div class="bar-fill" id="bf-disk" style="width:0%;background:var(--amber)"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Deployment info -->
+			<div class="card col-6">
+				<div class="card-title">Deployment</div>
+				<div class="info-list">
+					<div class="info-row">
+						<span class="info-key">Environment</span>
+						<span class="badge badge-amber" id="dep-env">—</span>
+					</div>
+					<div class="info-row">
+						<span class="info-key">Version</span>
+						<span class="info-val" id="dep-ver">—</span>
+					</div>
+					<div class="info-row">
+						<span class="info-key">Region</span>
+						<span class="info-val" id="dep-region">—</span>
+					</div>
+					<div class="info-row">
+						<span class="info-key">Uptime</span>
+						<span class="info-val accent" id="dep-uptime">—</span>
+					</div>
+					<div class="info-row">
+						<span class="info-key">Platform</span>
+						<span class="badge badge-accent">EKS / Kubernetes</span>
+					</div>
+				</div>
+			</div>
+
+			<!-- Event log -->
+			<div class="card col-12">
+				<div class="card-title">Event Log</div>
+				<div class="log-feed" id="log-feed"></div>
+			</div>
+
+		</div><!-- /grid -->
+
+		<footer>
+			Flask · GitHub Actions CI/CD · Amazon EKS &nbsp;|&nbsp;
+			<a href="/api/status">raw api</a> &nbsp;·&nbsp;
+			<a href="/health">health probe</a>
+		</footer>
+	</div>
+
+	<script>
+		// ── Gauge helper ──────────────────────────────────────────────────────────────
+		const CIRC = 2 * Math.PI * 35; // 219.9
+
+		function setGauge(ringId, pctId, value) {
+			const pct = Math.min(Math.max(value, 0), 100);
+			const offset = CIRC - (pct / 100) * CIRC;
+			const ring = document.getElementById(ringId);
+			ring.style.strokeDashoffset = offset;
+
+			// colour by threshold
+			if (ringId === 'cpu-ring') {
+				ring.style.stroke = pct > 85 ? 'var(--red)' : pct > 60 ? 'var(--amber)' : 'var(--accent)';
+			}
+			document.getElementById(pctId).textContent = pct.toFixed(0) + '%';
+		}
+
+		// ── Sparkline ─────────────────────────────────────────────────────────────────
+		const MAX_POINTS = 30;
+		const cpuHistory = Array(MAX_POINTS).fill(0);
+		const canvas = document.getElementById('spark');
+
+		function resizeCanvas() {
+			canvas.width = canvas.parentElement.clientWidth;
+			canvas.height = 70;
+		}
+		resizeCanvas();
+		window.addEventListener('resize', () => { resizeCanvas(); drawSpark(); });
+
+		function drawSpark() {
+			const ctx = canvas.getContext('2d');
+			const W = canvas.width, H = canvas.height;
+			ctx.clearRect(0, 0, W, H);
+
+			const step = W / (MAX_POINTS - 1);
+
+			// gradient fill
+			const grad = ctx.createLinearGradient(0, 0, 0, H);
+			grad.addColorStop(0, 'rgba(0,229,255,0.25)');
+			grad.addColorStop(1, 'rgba(0,229,255,0)');
+
+			ctx.beginPath();
+			cpuHistory.forEach((v, i) => {
+				const x = i * step;
+				const y = H - (v / 100) * H * 0.9 - 4;
+				i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+			});
+			ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+			ctx.fillStyle = grad;
+			ctx.fill();
+
+			// line
+			ctx.beginPath();
+			cpuHistory.forEach((v, i) => {
+				const x = i * step;
+				const y = H - (v / 100) * H * 0.9 - 4;
+				i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+			});
+			ctx.strokeStyle = 'rgba(0,229,255,0.85)';
+			ctx.lineWidth = 1.5;
+			ctx.lineJoin = 'round';
+			ctx.stroke();
+
+			// dot at latest
+			const lx = (MAX_POINTS - 1) * step;
+			const ly = H - (cpuHistory[MAX_POINTS - 1] / 100) * H * 0.9 - 4;
+			ctx.beginPath();
+			ctx.arc(lx, ly, 3, 0, 2 * Math.PI);
+			ctx.fillStyle = '#00e5ff';
+			ctx.fill();
+		}
+
+		// ── Log feed ──────────────────────────────────────────────────────────────────
+		const logEl = document.getElementById('log-feed');
+
+		function addLog(msg, type = 'ok') {
+			const ts = new Date().toTimeString().slice(0, 8);
+			const line = document.createElement('div');
+			line.className = 'log-line';
+			line.innerHTML = `<span class="log-ts">[${ts}]</span><span class="log-${type}">${msg}</span>`;
+			logEl.prepend(line);
+			// keep last 40 lines
+			while (logEl.children.length > 40) logEl.removeChild(logEl.lastChild);
+		}
+
+		// ── Poll /api/status ──────────────────────────────────────────────────────────
+		let firstLoad = true;
+
+		async function poll() {
+			try {
+				const res = await fetch('/api/status');
+				const data = await res.json();
+
+				// Status bar
+				document.getElementById('sb-status').textContent = data.status.toUpperCase();
+				document.getElementById('sb-uptime').textContent = data.uptime;
+				document.getElementById('sb-env').textContent = data.deployment.env;
+				document.getElementById('sb-region').textContent = data.deployment.region;
+				document.getElementById('sb-version').textContent = data.deployment.version;
+				document.getElementById('sb-ts').textContent = new Date().toTimeString().slice(0, 8);
+
+				// Gauges
+				setGauge('cpu-ring', 'cpu-pct', data.cpu_percent);
+				setGauge('mem-ring', 'mem-pct', data.memory.percent);
+				setGauge('disk-ring', 'disk-pct', data.disk.percent);
+
+				document.getElementById('cpu-sub').textContent = data.cpu_percent.toFixed(1) + '% utilization';
+				document.getElementById('mem-sub').textContent = `${data.memory.used_mb} / ${data.memory.total_mb} MB`;
+				document.getElementById('disk-sub').textContent = `${data.disk.used_gb} / ${data.disk.total_gb} GB`;
+
+				// Bars
+				document.getElementById('br-cpu').textContent = data.cpu_percent.toFixed(0) + '%';
+				document.getElementById('br-mem').textContent = data.memory.percent.toFixed(0) + '%';
+				document.getElementById('br-disk').textContent = data.disk.percent.toFixed(0) + '%';
+				document.getElementById('bf-cpu').style.width = data.cpu_percent + '%';
+				document.getElementById('bf-mem').style.width = data.memory.percent + '%';
+				document.getElementById('bf-disk').style.width = data.disk.percent + '%';
+
+				// System info
+				document.getElementById('sys-host').textContent = data.system.hostname;
+				document.getElementById('sys-os').textContent = data.system.os;
+				document.getElementById('sys-py').textContent = data.system.python;
+
+				// Deployment
+				document.getElementById('dep-env').textContent = data.deployment.env;
+				document.getElementById('dep-ver').textContent = data.deployment.version;
+				document.getElementById('dep-region').textContent = data.deployment.region;
+				document.getElementById('dep-uptime').textContent = data.uptime;
+
+				// Sparkline
+				cpuHistory.push(data.cpu_percent);
+				if (cpuHistory.length > MAX_POINTS) cpuHistory.shift();
+				drawSpark();
+
+				// Log
+				if (firstLoad) {
+					addLog(`Dashboard initialised — ${data.system.os} / Python ${data.system.python}`);
+					firstLoad = false;
+				}
+				const cpuWarn = data.cpu_percent > 80;
+				const memWarn = data.memory.percent > 85;
+				if (cpuWarn) addLog(`High CPU: ${data.cpu_percent.toFixed(1)}%`, 'warn');
+				if (memWarn) addLog(`High Memory: ${data.memory.percent}%`, 'warn');
+				if (!cpuWarn && !memWarn) addLog(`Metrics updated — CPU ${data.cpu_percent.toFixed(1)}% · Mem ${data.memory.percent}%`);
+
+			} catch (e) {
+				addLog('Fetch error: ' + e.message, 'warn');
+			}
+		}
+
+		// initial + repeat every 3 s
+		poll();
+		setInterval(poll, 3000);
+	</script>
+</body>
+
 </html>
