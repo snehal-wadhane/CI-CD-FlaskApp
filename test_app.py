@@ -1,97 +1,108 @@
 import pytest
-from app import create_app
+import app as app_module
 
 
-# ── Fixture ───────────────────────────────────────────────────
+# ── Detect app pattern and create client ──────────────────────
+def get_app():
+    """Works with both app patterns:
+       Pattern 1: app = Flask(__name__)  (direct)
+       Pattern 2: def create_app(): ...  (factory)
+    """
+    if hasattr(app_module, 'create_app'):
+        flask_app = app_module.create_app()
+    elif hasattr(app_module, 'app'):
+        flask_app = app_module.app
+    else:
+        raise RuntimeError("Could not find Flask app in app.py")
+    return flask_app
+
+
 @pytest.fixture
 def client():
-    """Create a test client for the Flask app."""
-    app = create_app()
-    app.config['TESTING'] = True
-    app.config['WTF_CSRF_ENABLED'] = False
-    with app.test_client() as client:
-        yield client
+    flask_app = get_app()
+    flask_app.config['TESTING'] = True
+    flask_app.config['WTF_CSRF_ENABLED'] = False
+    with flask_app.test_client() as c:
+        yield c
 
 
 # ══════════════════════════════════════════════════════════════
-# 1. SMOKE TEST — app starts at all
+# 1. SMOKE TESTS
 # ══════════════════════════════════════════════════════════════
-def test_app_created():
-    """App factory returns a valid Flask app."""
-    app = create_app()
-    assert app is not None
+def test_app_loads():
+    """App loads without errors."""
+    flask_app = get_app()
+    assert flask_app is not None
+
+
+def test_app_is_flask_instance():
+    """Loaded object is a Flask app."""
+    from flask import Flask
+    flask_app = get_app()
+    assert isinstance(flask_app, Flask)
+
+
+def test_app_has_routes():
+    """App has at least one route registered."""
+    flask_app = get_app()
+    rules = [str(r) for r in flask_app.url_map.iter_rules()]
+    assert len(rules) > 0
 
 
 # ══════════════════════════════════════════════════════════════
-# 2. ROUTE TESTS
+# 2. HOME ROUTE TESTS
 # ══════════════════════════════════════════════════════════════
-def test_home_get_returns_200(client):
+def test_home_get_200(client):
     """GET / returns 200 OK."""
-    response = client.get('/')
-    assert response.status_code == 200
+    res = client.get('/')
+    assert res.status_code == 200
 
 
-def test_home_post_returns_200(client):
+def test_home_post_200(client):
     """POST / returns 200 OK."""
-    response = client.post('/')
-    assert response.status_code == 200
+    res = client.post('/')
+    assert res.status_code == 200
 
 
 def test_home_returns_html(client):
     """/ returns HTML content."""
-    response = client.get('/')
-    assert b'<!DOCTYPE html>' in response.data or b'<html' in response.data
+    res = client.get('/')
+    assert b'<html' in res.data.lower() or b'<!doctype' in res.data.lower()
 
 
+def test_home_not_empty(client):
+    """Home page has content."""
+    res = client.get('/')
+    assert len(res.data) > 0
+
+
+def test_home_content_type_html(client):
+    """Response content-type is text/html."""
+    res = client.get('/')
+    assert 'text/html' in res.content_type
+
+
+# ══════════════════════════════════════════════════════════════
+# 3. 404 TEST
+# ══════════════════════════════════════════════════════════════
 def test_404_on_unknown_route(client):
     """Unknown route returns 404."""
-    response = client.get('/this-page-does-not-exist')
-    assert response.status_code == 404
+    res = client.get('/this-route-does-not-exist-xyz')
+    assert res.status_code == 404
 
 
 # ══════════════════════════════════════════════════════════════
-# 3. CONTENT TESTS
+# 4. CONFIG TESTS
 # ══════════════════════════════════════════════════════════════
-def test_home_page_not_empty(client):
-    """Home page response body is not empty."""
-    response = client.get('/')
-    assert len(response.data) > 0
+def test_testing_config():
+    """Testing mode can be enabled."""
+    flask_app = get_app()
+    flask_app.config['TESTING'] = True
+    assert flask_app.config['TESTING'] is True
 
 
-def test_response_content_type_is_html(client):
-    """Response content-type is text/html."""
-    response = client.get('/')
-    assert 'text/html' in response.content_type
-
-
-# ══════════════════════════════════════════════════════════════
-# 4. APP CONFIG TESTS
-# ══════════════════════════════════════════════════════════════
-def test_testing_mode_enabled(client):
-    """Testing flag is True during tests."""
-    app = create_app()
-    app.config['TESTING'] = True
-    assert app.config['TESTING'] is True
-
-
-def test_app_has_home_route():
-    """App has a route registered for '/'."""
-    app = create_app()
-    rules = [str(rule) for rule in app.url_map.iter_rules()]
+def test_home_route_registered():
+    """'/' route exists in URL map."""
+    flask_app = get_app()
+    rules = [str(r) for r in flask_app.url_map.iter_rules()]
     assert '/' in rules
-
-
-def test_home_route_allows_get():
-    """Home route accepts GET method."""
-    app = create_app()
-    for rule in app.url_map.iter_rules():
-        if str(rule) == '/':
-            assert 'GET' in rule.methods
-
-
-def test_home_route_allows_post():
-    """Home route accepts POST method."""
-    app = create_app()
-    for rule in app.url_map.iter_rules():
-        if str(rule) == '/':
-            assert 'POST' in rule.methods
