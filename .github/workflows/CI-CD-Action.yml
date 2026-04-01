@@ -1,60 +1,238 @@
-name: Docker Image, Kubernetes deployment
+name: CI/CD Pipeline — Build · Test · Deploy
+
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+
+env:
+  IMAGE_NAME: snehalwadhane/docker-flask-app
+  IMAGE_TAG: ${{ github.sha }}
+
+# ─────────────────────────────────────────────────────────────────────────────
 jobs:
-  ImageDeploy:
+
+# ── 1. BUILD ──────────────────────────────────────────────────────────────────
+  build:
+    name: 🔨 Build Docker Image
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Login to Docker Hub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: Build and push
-        uses: docker/build-push-action@v2
+
+      # Build the image and export it as a tar so the test job can load it
+      # without re-building (saves time and ensures test = what ships).
+      - name: Build and export image
+        uses: docker/build-push-action@v5
         with:
           context: .
-          push: true
-          no-cache: true
-          tags: snehalwadhane/docker-flask-app:latest
-      #   edgariphdz98/docker-flask-app-portafolio:${{ secrets.VERSION }}
-      # Set the target AKS cluster.
-      - name: Logging int to Azure
+          push: false                          # push happens in deploy job
+          tags: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          outputs: type=docker,dest=/tmp/flask-app-image.tar
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Share the tarball between jobs via GitHub's artifact store.
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flask-app-image
+          path: /tmp/flask-app-image.tar
+          retention-days: 1
+
+
+# ── 2. TEST ───────────────────────────────────────────────────────────────────
+  test:
+    name: 🧪 Run Tests
+    runs-on: ubuntu-latest
+    needs: build                              # wait for the image to be built
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ── Unit & integration tests with pytest ──────────────────────────────
+      - name: Run pytest suite
+        run: |
+          pytest tests/ \
+            --tb=short \
+            --junitxml=reports/junit.xml \
+            -v
+
+      # ── Publish test results in the Actions UI ────────────────────────────
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()                          # show results even on failure
+        with:
+          files: reports/junit.xml
+
+      # ── Container smoke test ──────────────────────────────────────────────
+      # Load the exact image that was built, start it, and hit /health.
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: flask-app-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: docker load --input /tmp/flask-app-image.tar
+
+      - name: Container smoke test — /health endpoint
+        run: |
+          docker run -d \
+            --name flask-smoke \
+            -p 5000:5000 \
+            ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+
+          # Wait up to 30 s for the app to become ready
+          for i in $(seq 1 15); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/health || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "✅  /health returned 200 after ${i} attempts"
+              break
+            fi
+            echo "Attempt $i — got $STATUS, retrying in 2 s…"
+            sleep 2
+          done
+
+          # Final assertion
+          curl -f http://localhost:5000/health
+
+      - name: Container smoke test — /api/status endpoint
+        run: |
+          curl -f http://localhost:5000/api/status | python3 -m json.tool
+
+      - name: Tear down smoke container
+        if: always()
+        run: docker rm -f flask-smoke || true
+
+
+# ── 3. PUSH IMAGE ─────────────────────────────────────────────────────────────
+  push-image:
+    name: 📦 Push Image to Docker Hub
+    runs-on: ubuntu-latest
+    needs: test                               # only push when tests pass
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: flask-app-image
+          path: /tmp
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Load and push Docker image
+        run: |
+          docker load --input /tmp/flask-app-image.tar
+
+          # Tag with both the commit SHA (immutable) and 'latest'
+          docker tag ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} \
+                     ${{ env.IMAGE_NAME }}:latest
+
+          docker push ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          docker push ${{ env.IMAGE_NAME }}:latest
+
+          echo "IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' \
+            ${{ env.IMAGE_NAME }}:latest)" >> $GITHUB_ENV
+
+
+# ── 4. DEPLOY ─────────────────────────────────────────────────────────────────
+  deploy:
+    name: 🚀 Deploy to Kubernetes (AKS)
+    runs-on: ubuntu-latest
+    needs: push-image
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    environment:
+      name: production
+      url: http://flask-app.example.com       # replace with your service URL
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Setting context with AKS
-        uses: azure/aks-set-context@v2.0
+      - name: Set AKS context
+        uses: azure/aks-set-context@v3
         with:
           cluster-name: Flask-app-cluster
           resource-group: app-deployment-resources
-      # Create namespace if doesn't exist
-      - name: Setting up K8 Master namespace
+
+      # Create the namespace idempotently
+      - name: Ensure namespace exists
         run: |
-          kubectl create namespace flask-app --dry-run=client -o json | kubectl apply -f -
-      # Create imagepullsecret for Azure Container registry (ACR)
-      - uses: azure/k8s-create-secret@v1
+          kubectl create namespace flask-app --dry-run=client -o json \
+            | kubectl apply -f -
+
+      # Create / update the Docker Hub pull secret
+      - name: Create image pull secret
+        uses: azure/k8s-create-secret@v4
         with:
           container-registry-url: docker.io
           container-registry-username: ${{ secrets.DOCKER_USERNAME }}
           container-registry-password: ${{ secrets.DOCKER_PASSWORD }}
-          secret-name: edgar-registry-secret
+          secret-name: flask-registry-secret
           namespace: flask-app
-      # Deploy app to AKS
-      - name: Deploying to Kubernetes cluster
-        uses: Azure/k8s-deploy@v1
+
+      # Stamp the exact SHA into the manifests so Kubernetes always pulls
+      # the new image rather than a cached :latest layer.
+      - name: Update image tag in deployment manifest
+        run: |
+          sed -i "s|IMAGE_TAG_PLACEHOLDER|${{ env.IMAGE_TAG }}|g" \
+            manifests/deployment.yml
+
+      # Apply manifests — kubectl will rolling-update existing pods
+      - name: Deploy to AKS
+        uses: azure/k8s-deploy@v4
         with:
           manifests: |
             manifests/deployment.yml
             manifests/service.yml
           images: |
-            docker.io/edgariphdz98/docker-flask-app-portafolio:latest
+            docker.io/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
           imagepullsecrets: |
-            edgar-registry-secret
+            flask-registry-secret
           namespace: flask-app
+          strategy: rolling
+
+      # Wait for the rollout to finish before declaring success
+      - name: Verify rollout
+        run: |
+          kubectl rollout status deployment/flask-app-deployment \
+            -n flask-app \
+            --timeout=120s
+
+      - name: Show running pods
+        run: kubectl get pods -n flask-app -o wide
